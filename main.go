@@ -1,11 +1,15 @@
 package main
 
 import (
+	"io/ioutil"
 	"os"
 
 	"github.com/jessevdk/go-flags"
 
+	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagerflags"
+	"code.cloudfoundry.org/service-broker-store/brokerstore"
+	"code.cloudfoundry.org/service-broker-store/brokerstore/credhub_shims"
 )
 
 var opts struct {
@@ -46,4 +50,60 @@ func main() {
 	logger.Info("migrating")
 	defer logger.Info("ends")
 
+	var dbCACert string
+	if opts.DBCACertPath != "" {
+		b, err := ioutil.ReadFile(opts.DBCACertPath)
+		if err != nil {
+			logger.Fatal("cannot-read-db-ca-cert", err, lager.Data{"path": opts.DBCACertPath})
+		}
+		dbCACert = string(b)
+	}
+
+	var credhubCACert string
+	if opts.CredhubCACertPath != "" {
+		b, err := ioutil.ReadFile(opts.CredhubCACertPath)
+		if err != nil {
+			logger.Fatal("cannot-read-credhub-ca-cert", err, lager.Data{"path": opts.CredhubCACertPath})
+		}
+		credhubCACert = string(b)
+	}
+
+	dbStore, err := brokerstore.NewSqlStore(
+		logger,
+		opts.DBDriver,
+		opts.DBUsername,
+		opts.DBPassword,
+		opts.DBHostname,
+		opts.DBPort,
+		opts.DBName,
+		dbCACert,
+	)
+	if err != nil {
+		logger.Fatal("failed-to-initialize-sql-store", err)
+	}
+
+	credhubShim, err := credhub_shims.NewCredhubShim(
+		opts.CredhubURL,
+		credhubCACert,
+		opts.UAAClientID,
+		opts.UAAClientSecret,
+		&credhub_shims.CredhubAuthShim{},
+	)
+	if err != nil {
+		logger.Fatal("failed-to-create-credhub-shim", err)
+	}
+	credhubStore := brokerstore.NewCredhubStore(
+		logger,
+		credhubShim,
+		opts.StoreID,
+	)
+	if err != nil {
+		logger.Fatal("failed-to-initialize-credhub-store", err)
+	}
+
+	migrator := NewMigrator(logger)
+	err = migrator.Migrate(dbStore, credhubStore)
+	if err != nil {
+		panic(err)
+	}
 }
