@@ -104,6 +104,6 @@ func main() {
 	migrator := NewMigrator(logger)
 	err = migrator.Migrate(dbStore, credhubStore)
 	if err != nil {
-		panic(err)
+		logger.Fatal("failed-to-migrate", err)
 	}
 }
