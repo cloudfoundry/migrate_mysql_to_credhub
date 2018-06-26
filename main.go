@@ -35,6 +35,8 @@ var opts struct {
 
 	UAAClientSecret string `long:"uaaClientSecret" description:"UAA client secret when using CredHub to store broker state" required:"true"`
 
+	UAACACertPath string `long:"uaaCACertPath" description:"Path to CA Cert for UAA used for CredHub authorization"`
+
 	StoreID string `long:"storeID" description:"Store ID used to namespace instance details and bindings (credhub only)" required:"true"`
 
 	MinLogLevel string `long:"logLevel" default:"info" description:"Log level: debug, info, error or fatal"`
@@ -68,6 +70,15 @@ func main() {
 		credhubCACert = string(b)
 	}
 
+	var uaaCACert string
+	if opts.UAACACertPath != "" {
+		b, err := ioutil.ReadFile(opts.UAACACertPath)
+		if err != nil {
+			logger.Fatal("cannot-read-credhub-ca-cert", err, lager.Data{"path": opts.UAACACertPath})
+		}
+		uaaCACert = string(b)
+	}
+
 	dbStore, err := brokerstore.NewSqlStore(
 		logger,
 		opts.DBDriver,
@@ -87,6 +98,7 @@ func main() {
 		credhubCACert,
 		opts.UAAClientID,
 		opts.UAAClientSecret,
+		uaaCACert,
 		&credhub_shims.CredhubAuthShim{},
 	)
 	if err != nil {
