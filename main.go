@@ -4,12 +4,11 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/jessevdk/go-flags"
-
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagerflags"
 	"code.cloudfoundry.org/service-broker-store/brokerstore"
 	"code.cloudfoundry.org/service-broker-store/brokerstore/credhub_shims"
+	"github.com/jessevdk/go-flags"
 )
 
 var opts struct {
@@ -26,6 +25,8 @@ var opts struct {
 	DBPassword string `long:"dbPassword" description:"Database password when using SQL to store broker state" required:"true"`
 
 	DBCACertPath string `long:"dbCACertPath" description:"Path to CA Cert for database SSL connection"`
+
+	DBSkipHostnameValidation bool `long:"dbSkipHostnameValidation" description:"Skip DB server hostname validation when connecting over TLS"`
 
 	CredhubURL string `long:"credhubURL" description:"CredHub server URL when using CredHub to store broker state" required:"true"`
 
@@ -88,6 +89,7 @@ func main() {
 		opts.DBPort,
 		opts.DBName,
 		dbCACert,
+		opts.DBSkipHostnameValidation,
 	)
 	if err != nil {
 		logger.Fatal("failed-to-initialize-sql-store", err)
