@@ -8,7 +8,8 @@ import (
 	"code.cloudfoundry.org/lager/lagerflags"
 	"code.cloudfoundry.org/service-broker-store/brokerstore"
 	"code.cloudfoundry.org/service-broker-store/brokerstore/credhub_shims"
-	"github.com/jessevdk/go-flags"
+	"github.com/go-sql-driver/mysql"
+	flags "github.com/jessevdk/go-flags"
 )
 
 var opts struct {
@@ -92,7 +93,12 @@ func main() {
 		opts.DBSkipHostnameValidation,
 	)
 	if err != nil {
-		logger.Fatal("failed-to-initialize-sql-store", err)
+		if HandleSQLStoreError(err) != nil {
+			logger.Fatal("failed-to-initialize-sql-store", err)
+		}
+
+		logger.Info("missing-sql-database")
+		return
 	}
 
 	credhubShim, err := credhub_shims.NewCredhubShim(
@@ -120,4 +126,18 @@ func main() {
 	if err != nil {
 		logger.Fatal("failed-to-migrate", err)
 	}
+}
+
+func HandleSQLStoreError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if merr, ok := err.(*mysql.MySQLError); ok {
+		if merr.Number == 1049 {
+			return nil
+		}
+	}
+
+	return err
 }
