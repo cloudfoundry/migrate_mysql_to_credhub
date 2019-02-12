@@ -6,6 +6,7 @@ import (
 
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagerflags"
+	"code.cloudfoundry.org/migrate_mysql_to_credhub/migrator"
 	"code.cloudfoundry.org/service-broker-store/brokerstore"
 	"code.cloudfoundry.org/service-broker-store/brokerstore/credhub_shims"
 	"github.com/go-sql-driver/mysql"
@@ -121,7 +122,7 @@ func main() {
 		logger.Fatal("failed-to-initialize-credhub-store", err)
 	}
 
-	migrator := NewMigrator(logger)
+	migrator := migrator.NewMigrator(logger)
 	err = migrator.Migrate(dbStore, credhubStore)
 	if err != nil {
 		logger.Fatal("failed-to-migrate", err)

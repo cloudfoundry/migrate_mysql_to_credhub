@@ -1,12 +1,19 @@
-package main
+package migrator
 
 import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/service-broker-store/brokerstore"
 )
 
+//go:generate counterfeiter -o fakes/fake_retirable_store.go . RetirableStore
+type RetirableStore interface {
+	Retire() error
+	IsRetired() (bool, error)
+	brokerstore.Store
+}
+
 type Migrator interface {
-	Migrate(brokerstore.Store, brokerstore.Store) error
+	Migrate(RetirableStore, brokerstore.Store) error
 }
 
 type migrator struct {
@@ -19,7 +26,7 @@ func NewMigrator(logger lager.Logger) Migrator {
 	}
 }
 
-func (m *migrator) Migrate(fromStore brokerstore.Store, toStore brokerstore.Store) error {
+func (m *migrator) Migrate(fromStore RetirableStore, toStore brokerstore.Store) error {
 	instanceDetails, err := fromStore.RetrieveAllInstanceDetails()
 	if err != nil {
 		m.logger.Error("failed-to-retrieve-all-instance-details", err)
@@ -44,5 +51,6 @@ func (m *migrator) Migrate(fromStore brokerstore.Store, toStore brokerstore.Stor
 			return err
 		}
 	}
-	return nil
+
+	return fromStore.Retire()
 }
