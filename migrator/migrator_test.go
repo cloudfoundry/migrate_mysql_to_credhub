@@ -11,21 +11,50 @@ import (
 	"code.cloudfoundry.org/migrate_mysql_to_credhub/migrator"
 	"code.cloudfoundry.org/migrate_mysql_to_credhub/migrator/fakes"
 	"code.cloudfoundry.org/service-broker-store/brokerstore"
-	"code.cloudfoundry.org/service-broker-store/brokerstore/brokerstorefakes"
 )
 
 var _ = Describe("Migrator", func() {
 	var (
 		migrationObj migrator.Migrator
 		fromStore    *fakes.FakeRetirableStore
-		toStore      *brokerstorefakes.FakeStore
+		toStore      *fakes.FakeActivatableStore
+		err          error
 	)
 
 	BeforeEach(func() {
 		logger := lagertest.NewTestLogger("migrator-test")
 		migrationObj = migrator.NewMigrator(logger)
 		fromStore = &fakes.FakeRetirableStore{}
-		toStore = &brokerstorefakes.FakeStore{}
+		toStore = &fakes.FakeActivatableStore{}
+	})
+
+	JustBeforeEach(func() {
+		err = migrationObj.Migrate(fromStore, toStore)
+	})
+
+	Context("before the migration starts", func() {
+		Context("when Credhub has already been activated", func() {
+			BeforeEach(func() {
+				toStore.IsActivatedReturns(true, nil)
+			})
+
+			It("should skip the migration", func() {
+				Expect(fromStore.RetrieveAllInstanceDetailsCallCount()).To(Equal(0))
+				Expect(fromStore.RetrieveAllBindingDetailsCallCount()).To(Equal(0))
+				Expect(toStore.CreateInstanceDetailsCallCount()).To(Equal(0))
+				Expect(toStore.CreateBindingDetailsCallCount()).To(Equal(0))
+			})
+		})
+
+		Context("when the call to check activation fails", func() {
+			BeforeEach(func() {
+				toStore.IsActivatedReturns(false, errors.New("activation-failed"))
+			})
+
+			It("should return the activation error", func() {
+				Expect(err).To(MatchError("activation-failed"))
+			})
+		})
 	})
 
 	Context("when there are instance details in fromStore", func() {
@@ -34,11 +63,11 @@ var _ = Describe("Migrator", func() {
 				"123": brokerstore.ServiceInstance{ServiceID: "some-service-1"},
 				"456": brokerstore.ServiceInstance{ServiceID: "some-service-2"},
 			}, nil)
-			err := migrationObj.Migrate(fromStore, toStore)
-			Expect(err).NotTo(HaveOccurred())
+
 		})
 
 		It("migrates data from fromStore to toStore", func() {
+			Expect(err).NotTo(HaveOccurred())
 			Expect(toStore.CreateInstanceDetailsCallCount()).To(Equal(2))
 			id1, serviceInstance1 := toStore.CreateInstanceDetailsArgsForCall(0)
 			id2, serviceInstance2 := toStore.CreateInstanceDetailsArgsForCall(1)
@@ -53,11 +82,10 @@ var _ = Describe("Migrator", func() {
 				"123": brokerapi.BindDetails{AppGUID: "some-app-1"},
 				"456": brokerapi.BindDetails{AppGUID: "some-app-2"},
 			}, nil)
-			err := migrationObj.Migrate(fromStore, toStore)
-			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("migrates data from fromStore to toStore", func() {
+			Expect(err).NotTo(HaveOccurred())
 			Expect(toStore.CreateBindingDetailsCallCount()).To(Equal(2))
 			id1, bindDetails1 := toStore.CreateBindingDetailsArgsForCall(0)
 			id2, bindDetails2 := toStore.CreateBindingDetailsArgsForCall(1)
@@ -67,10 +95,19 @@ var _ = Describe("Migrator", func() {
 	})
 
 	Context("when the migration is complete", func() {
-		var err error
+		It("calls activate on the Credhub store", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(toStore.ActivateCallCount()).To(Equal(1))
+		})
 
-		JustBeforeEach(func() {
-			err = migrationObj.Migrate(fromStore, toStore)
+		Context("when the activate call fails", func() {
+			BeforeEach(func() {
+				toStore.ActivateReturns(errors.New("activate-failed"))
+			})
+
+			It("returns the error from the store", func() {
+				Expect(err).To(MatchError(errors.New("activate-failed")))
+			})
 		})
 
 		It("calls retire on the SQL store", func() {

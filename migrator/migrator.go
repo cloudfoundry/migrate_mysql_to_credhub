@@ -12,8 +12,14 @@ type RetirableStore interface {
 	brokerstore.Store
 }
 
+//go:generate counterfeiter -o fakes/fake_activatable_store.go . ActivatibleStore
+type ActivatableStore interface {
+	Activate() error
+	IsActivated() (bool, error)
+	brokerstore.Store
+}
 type Migrator interface {
-	Migrate(RetirableStore, brokerstore.Store) error
+	Migrate(RetirableStore, ActivatableStore) error
 }
 
 type migrator struct {
@@ -26,7 +32,17 @@ func NewMigrator(logger lager.Logger) Migrator {
 	}
 }
 
-func (m *migrator) Migrate(fromStore RetirableStore, toStore brokerstore.Store) error {
+func (m *migrator) Migrate(fromStore RetirableStore, toStore ActivatableStore) error {
+	activated, err := toStore.IsActivated()
+	if err != nil {
+		return err
+	}
+
+	if activated {
+		m.logger.Info("credhub-already-activated")
+		return nil
+	}
+
 	instanceDetails, err := fromStore.RetrieveAllInstanceDetails()
 	if err != nil {
 		m.logger.Error("failed-to-retrieve-all-instance-details", err)
@@ -50,6 +66,11 @@ func (m *migrator) Migrate(fromStore RetirableStore, toStore brokerstore.Store) 
 			m.logger.Error("failed-to-create-binding-details", err, lager.Data{"id": id, "binding-details": details})
 			return err
 		}
+	}
+
+	err = toStore.Activate()
+	if err != nil {
+		return err
 	}
 
 	return fromStore.Retire()
