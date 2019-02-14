@@ -33,37 +33,46 @@ func NewMigrator(logger lager.Logger) Migrator {
 }
 
 func (m *migrator) Migrate(fromStore RetirableStore, toStore ActivatableStore) error {
+	logger := m.logger.Session("migrate")
+	logger.Info("start")
+	defer logger.Info("end")
+
 	activated, err := toStore.IsActivated()
 	if err != nil {
+		logger.Error("failed-to-check-if-credhub-is-activated", err)
 		return err
 	}
 
 	if activated {
-		m.logger.Info("credhub-already-activated")
+		logger.Info("credhub-already-activated")
 		return nil
 	}
 
 	instanceDetails, err := fromStore.RetrieveAllInstanceDetails()
 	if err != nil {
-		m.logger.Error("failed-to-retrieve-all-instance-details", err)
+		logger.Error("failed-to-retrieve-all-instance-details", err)
 		return err
 	}
+
+	logger.Info("instance-details", lager.Data{"count": len(instanceDetails)})
 	for id, details := range instanceDetails {
 		err = toStore.CreateInstanceDetails(id, details)
 		if err != nil {
-			m.logger.Error("failed-to-create-instance-details", err, lager.Data{"id": id, "service-details": details})
+			logger.Error("failed-to-create-instance-details", err, lager.Data{"id": id, "service-details": details})
 			return err
 		}
 	}
 	bindingDetails, err := fromStore.RetrieveAllBindingDetails()
 	if err != nil {
-		m.logger.Error("failed-to-retrieve-all-binding-details", err)
+		logger.Error("failed-to-retrieve-all-binding-details", err)
 		return err
 	}
+
+	logger.Info("binding-details", lager.Data{"count": len(bindingDetails)})
 	for id, details := range bindingDetails {
 		err = toStore.CreateBindingDetails(id, details)
 		if err != nil {
-			m.logger.Error("failed-to-create-binding-details", err, lager.Data{"id": id, "binding-details": details})
+			logger.Error("failed-to-create-binding-details", err, lager.Data{"id": id, "binding-details": details})
 			return err
 		}
 	}
