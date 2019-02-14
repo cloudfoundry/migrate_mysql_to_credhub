@@ -37,6 +37,17 @@ func (m *migrator) Migrate(fromStore RetirableStore, toStore ActivatableStore) e
 	logger.Info("start")
 	defer logger.Info("end")
 
+	retired, err := fromStore.IsRetired()
+	if err != nil {
+		logger.Error("failed-to-check-if-sql-is-retired", err)
+		return err
+	}
+
+	if retired {
+		logger.Info("sql-already-retired")
+		return nil
+	}
+
 	activated, err := toStore.IsActivated()
 	if err != nil {
 		logger.Error("failed-to-check-if-credhub-is-activated", err)

@@ -33,6 +33,28 @@ var _ = Describe("Migrator", func() {
 	})
 
 	Context("before the migration starts", func() {
+		Context("when SQL has already been retired", func() {
+			BeforeEach(func() {
+				fromStore.IsRetiredReturns(true, nil)
+			})
+
+			It("should skip the migration", func() {
+				Expect(fromStore.RetrieveAllInstanceDetailsCallCount()).To(Equal(0))
+				Expect(fromStore.RetrieveAllBindingDetailsCallCount()).To(Equal(0))
+				Expect(toStore.CreateInstanceDetailsCallCount()).To(Equal(0))
+				Expect(toStore.CreateBindingDetailsCallCount()).To(Equal(0))
+			})
+		})
+
+		Context("when the call to check retirement fails", func() {
+			BeforeEach(func() {
+				fromStore.IsRetiredReturns(false, errors.New("is-retired-failed"))
+			})
+
+			It("should return the retirement check error", func() {
+				Expect(err).To(MatchError("is-retired-failed"))
+			})
+		})
 		Context("when Credhub has already been activated", func() {
 			BeforeEach(func() {
 				toStore.IsActivatedReturns(true, nil)
@@ -46,13 +68,13 @@ var _ = Describe("Migrator", func() {
 			})
 		})
 
-		Context("when the call to check activation fails", func() {
+		Context("when the call to check activation check fails", func() {
 			BeforeEach(func() {
-				toStore.IsActivatedReturns(false, errors.New("activation-failed"))
+				toStore.IsActivatedReturns(false, errors.New("is-activated-failed"))
 			})
 
 			It("should return the activation error", func() {
-				Expect(err).To(MatchError("activation-failed"))
+				Expect(err).To(MatchError("is-activated-failed"))
 			})
 		})
 	})
