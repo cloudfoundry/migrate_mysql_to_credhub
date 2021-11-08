@@ -10,7 +10,8 @@ require (
 	github.com/cloudfoundry/go-socks5 v0.0.0-20180221174514-54f73bdb8a8e // indirect
 	github.com/cloudfoundry/socks5-proxy v0.2.0 // indirect
 	github.com/drewolson/testflight v1.0.0 // indirect
-	github.com/go-sql-driver/mysql v1.4.1
+	github.com/go-sql-driver/mysql v1.6.0
+	github.com/golang/protobuf v1.3.1 // indirect
 	github.com/gorilla/mux v1.7.3 // indirect
 	github.com/hashicorp/go-version v1.2.0 // indirect
 	github.com/jessevdk/go-flags v1.4.0
@@ -20,5 +21,6 @@ require (
 	github.com/pivotal-cf/brokerapi v6.4.2+incompatible
 	github.com/pkg/errors v0.8.1 // indirect
 	golang.org/x/crypto v0.0.0-20191010185427-af544f31c8ac // indirect
-	google.golang.org/appengine v1.6.5 // indirect
+	golang.org/x/net v0.0.0-20190603091049-60506f45cf65 // indirect
+	golang.org/x/text v0.3.2 // indirect
 )
