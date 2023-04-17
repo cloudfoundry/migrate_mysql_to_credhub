@@ -1,6 +1,6 @@
 # migrate_mysql_to_credhub
 
-An (arvhived) Go tool to migrate broker data from MySQL to CredHub
+An (archived) Go tool to migrate broker data from MySQL to CredHub
 
 This was used in the past for some kind of migration, but it's no longer in use, and no longer maintained.
 
